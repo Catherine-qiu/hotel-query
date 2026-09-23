@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>澳新酒店快速查询</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, #1a2a4a 0%, #2d4a6f 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .container {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    width: 100%;
+    max-width: 600px;
+    overflow: hidden;
+  }
+  .header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
+    color: #fff;
+    padding: 28px 32px;
+    text-align: center;
+  }
+  .header h1 { font-size: 22px; font-weight: 600; letter-spacing: 1px; }
+  .header p { font-size: 13px; opacity: 0.8; margin-top: 6px; }
+  .body { padding: 28px 32px 36px; }
+  .form-group { margin-bottom: 20px; }
+  label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 8px;
+  }
+  select {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f7fafc;
+    color: #2d3748;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234a5568' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    cursor: pointer;
+  }
+  select:focus { border-color: #2c5282; box-shadow: 0 0 0 3px rgba(44,82,130,0.15); }
+  select:disabled { opacity: 0.5; cursor: not-allowed; }
+  .result {
+    margin-top: 24px;
+    background: linear-gradient(135deg, #f0f7ff 0%, #e8f0fe 100%);
+    border-left: 4px solid #2c5282;
+    border-radius: 10px;
+    padding: 20px 22px;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .result.empty { color: #a0aec0; font-size: 14px; text-align: center; }
+  .result .hotel-name {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1a365d;
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+  .result .hotel-detail {
+    font-size: 14px;
+    color: #4a5568;
+    line-height: 1.9;
+  }
+  .result .hotel-detail span {
+    display: inline-block;
+    background: #fff;
+    padding: 2px 10px;
+    border-radius: 6px;
+    margin-right: 6px;
+    font-size: 13px;
+    color: #2c5282;
+    font-weight: 500;
+  }
+  .result .address-line {
+    margin-top: 8px;
+    font-size: 14px;
+    color: #2d3748;
+  }
+  .result .address-line strong { color: #1a365d; }
+  .footer {
+    text-align: center;
+    font-size: 12px;
+    color: #a0aec0;
+    padding: 0 32px 20px;
+  }
+  @media (max-width: 480px) {
+    .header { padding: 22px 20px; }
+    .body { padding: 22px 20px 28px; }
+    .header h1 { font-size: 19px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>澳新酒店快速查询</h1>
+    <p>皇后镇 · 基督城｜3公里内住宿清单</p>
+  </div>
+  <div class="body">
+    <div class="form-group">
+      <label for="city">选择出发地</label>
+      <select id="city" onchange="loadHotels()">
+        <option value="">— 请选择出发地 —</option>
+        <option value="queenstown">皇后镇 Queenstown</option>
+        <option value="christchurch">基督城 Christchurch</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="hotel">选择住宿</label>
+      <select id="hotel" onchange="showDetail()" disabled>
+        <option value="">— 请先选择出发地 —</option>
+      </select>
+    </div>
+    <div class="result empty" id="result">请选择出发地和住宿名称</div>
+  </div>
+  <div class="footer">数据来源：OpenStreetMap · 仅供内部查询使用</div>
+</div>
+
+<script>
+const data = {
+  queenstown: [
+    {name:"Adventure Q2 Hostel", type:"背包客栈", address:"Athol Street", dist:"0.046"},
+    {name:"Chambers City Centre Penthouse", type:"酒店", address:"50 Stanley Street", dist:"0.071"},
+    {name:"Adventure Queenstown Hostel", type:"背包客栈", address:"36 Camp Street", dist:"0.161"},
+    {name:"Nomads Queenstown Hostel", type:"背包客栈", address:"5 Church Street", dist:"0.222"},
+    {name:"Lylo Queenstown", type:"背包客栈", address:"47-49 Camp Street", dist:"0.265"},
+    {name:"Haka Lodge Queenstown", type:"酒店", address:"6 Henry Street", dist:"0.276"},
+    {name:"Amber lodge", type:"汽车旅馆", address:"1 Gorge Road", dist:"0.285"},
+    {name:"St James Apartments", type:"汽车旅馆", address:"5 Coronation Drive", dist:"0.329"},
+    {name:"Turner Lodge", type:"家庭旅馆/B&B", address:"2 Turner Street", dist:"0.339"},
+    {name:"Absoloot Value Accommodation", type:"背包客栈", address:"50 Beach Street", dist:"0.347"},
+    {name:"Sofitel Hotel Queenstown", type:"酒店", address:"8 Duke Street", dist:"0.364"},
+    {name:"Southern Laughter Backpackers", type:"背包客栈", address:"4 Isle Street", dist:"0.377"},
+    {name:"Novotel Queenstown Lakeside", type:"酒店", address:"Earl Street", dist:"0.381"},
+    {name:"Aspen Lodge Backpackers", type:"背包客栈", address:"11 Gorge Road", dist:"0.382"},
+    {name:"Blue Peaks Apartments", type:"汽车旅馆", address:"22 Stanley Street", dist:"0.385"},
+    {name:"The Spire Hotel", type:"酒店", address:"Church Lane", dist:"0.396"},
+    {name:"Caples Court", type:"酒店", address:"20 Stanley Street", dist:"0.397"},
+    {name:"Alpine Lodge", type:"背包客栈", address:"13 Gorge Road", dist:"0.406"},
+    {name:"Heartland Hotel", type:"酒店", address:"Stanley Street", dist:"0.41"},
+    {name:"Scenic Suites", type:"酒店", address:"Sydney Street", dist:"0.439"},
+    {name:"The Dairy Private Hotel", type:"酒店", address:"Brecon Street", dist:"0.447"},
+    {name:"Four Seasons Motel", type:"汽车旅馆", address:"Sydney Street", dist:"0.449"},
+    {name:"The Lofts Apartments", type:"酒店", address:"Shotover Street", dist:"0.454"},
+    {name:"The Apartments by Eichardt's", type:"酒店", address:"Marine Parade", dist:"0.479"},
+    {name:"Blue Peaks Lodge", type:"汽车旅馆", address:"Stanley Street", dist:"0.499"},
+    {name:"Lomond Lodge Motel & Apartments", type:"酒店", address:"33 Man Street", dist:"0.502"},
+    {name:"Whistler Queenstown", type:"酒店", address:"Gorge Road", dist:"0.52"},
+    {name:"Crowne Plaza", type:"酒店", address:"Beach Street", dist:"0.548"},
+    {name:"Koura Apartments", type:"酒店", address:"Gorge Road", dist:"0.553"},
+    {name:"Ramada Queenstown Central", type:"酒店", address:"Stanley Street", dist:"0.563"},
+    {name:"Queenstown Park Boutique Hotel", type:"酒店", address:"21 Robins Road", dist:"0.579"},
+    {name:"The Black Sheep Back Packers", type:"背包客栈", address:"13 Frankton Road", dist:"0.585"},
+    {name:"voco Queenstown", type:"酒店", address:"Cnr Stanley & Sydney Street", dist:"0.585"},
+    {name:"Queenstown Mews", type:"酒店", address:"Frankton Road", dist:"0.592"},
+    {name:"Wakatipu View Apartments", type:"酒店", address:"Frankton Road", dist:"0.594"},
+    {name:"Moon House", type:"家庭旅馆/B&B", address:"41 Man Street", dist:"0.603"},
+    {name:"Hippo Lodge Backpackers", type:"背包客栈", address:"4 Anderson Heights", dist:"0.614"},
+    {name:"The Waterfront", type:"酒店", address:"109 Beach Street", dist:"0.655"},
+    {name:"Copthorne Hotel & Resort Lakefront Queenstown", type:"酒店", address:"27 Frankton Road", dist:"0.667"},
+    {name:"The Wheelhouse", type:"酒店", address:"Lake Street", dist:"0.684"},
+    {name:"Browns Boutique Hotel", type:"酒店", address:"26 Isle Street", dist:"0.688"},
+    {name:"Millennium Hotel Queenstown", type:"酒店", address:"32 Frankton Road", dist:"0.689"},
+    {name:"Q1 by Relaxaway Holiday Homes", type:"酒店", address:"1 Brunswick Street", dist:"0.692"},
+    {name:"Forty Two by Touch of Spice", type:"酒店", address:"Man Street", dist:"0.695"},
+    {name:"Kakara Moana", type:"酒店", address:"Man Street", dist:"0.695"},
+    {name:"Bella Vista Queenstown", type:"酒店", address:"Robins Road", dist:"0.705"},
+    {name:"The Flaming Kiwi Backpackers", type:"背包客栈", address:"Robins Road", dist:"0.72"},
+    {name:"Hulbert House", type:"酒店", address:"Malaghan Street", dist:"0.722"},
+    {name:"Hurley's of Queenstown", type:"汽车旅馆", address:"Te Kirikiri Frankton Link", dist:"0.756"},
+    {name:"Historic Stonehill Villa", type:"酒店", address:"66 Hallenstein Street", dist:"0.764"},
+    {name:"Queenstown House Lakeside Luxury Apartments", type:"酒店", address:"Lake Esplanade", dist:"0.766"},
+    {name:"Deco Backpackers", type:"背包客栈", address:"Man Street", dist:"0.771"},
+    {name:"Wynter Apartments", type:"公寓式住宿", address:"12 Hallenstein Street", dist:"0.789"},
+    {name:"The Lodges", type:"汽车旅馆", address:"8D Lake Esplanade", dist:"0.79"},
+    {name:"The Garden House", type:"度假小屋", address:"56 Frankton Road", dist:"0.79"},
+    {name:"Autoline Motel", type:"汽车旅馆", address:"Dublin Street", dist:"0.794"},
+    {name:"Queenstown Motel Apartments", type:"汽车旅馆", address:"62 Frankton Road", dist:"0.816"},
+    {name:"Beeches Apartments", type:"酒店", address:"Hallenstein Street", dist:"0.82"},
+    {name:"Lakeside", type:"酒店", address:"18 Lake Esplanade", dist:"0.834"},
+    {name:"Lakeside Backpackers", type:"背包客栈", address:"Lake Esplanade", dist:"0.843"},
+    {name:"Hotel St Moritz", type:"酒店", address:"10-18 Brunswick Street", dist:"0.863"},
+    {name:"Lakefront Apartments & Lodges", type:"酒店", address:"Lake Esplanade", dist:"0.87"},
+    {name:"Alexis Motor Lodge", type:"汽车旅馆", address:"93 Frankton Road", dist:"0.872"},
+    {name:"Traveller's Oasis", type:"公寓式住宿", address:"16 Kent Street", dist:"0.924"},
+    {name:"（OSM未标注名称）", type:"酒店", address:"Frankton Road 79号一带", dist:"0.964"},
+    {name:"Peppers Beacon", type:"酒店", address:"34 Lake Esplanade", dist:"1.001"},
+    {name:"Pinewood Lodge", type:"酒店", address:"Boydtown Way", dist:"1.013"},
+    {name:"QT Queenstown", type:"酒店", address:"Brunswick Street", dist:"1.028"},
+    {name:"Rydges Lakeland Resort", type:"酒店", address:"Lake Esplanade", dist:"1.031"},
+    {name:"Stay of Queenstown", type:"家庭旅馆/B&B", address:"89 Frankton Road", dist:"1.077"},
+    {name:"Reavers Lodge", type:"家庭旅馆/B&B", address:"Reavers Lane", dist:"1.095"},
+    {name:"Esplanade Residences", type:"酒店", address:"Lake Esplanade", dist:"1.111"},
+    {name:"Remarkable Scene", type:"家庭旅馆/B&B", address:"55 Thompson Street", dist:"1.191"},
+    {name:"LakeRidge Queenstown", type:"酒店", address:"51 Thompson Street", dist:"1.2"},
+    {name:"Element Escapes Luxury Apartments", type:"酒店", address:"875 Frankton Road", dist:"1.231"},
+    {name:"Haka House Queenstown Lakefront", type:"背包客栈", address:"Lake Esplanade", dist:"1.234"},
+    {name:"Butterfli Lodge", type:"背包客栈", address:"Thompson Street", dist:"1.254"},
+    {name:"Highview Queenstown Apartments", type:"酒店", address:"66-70 Thompson Street", dist:"1.303"},
+    {name:"Colonial Village Motel", type:"汽车旅馆", address:"Frankton Road", dist:"1.422"},
+    {name:"Apartments @ Spinnaker Bay", type:"酒店", address:"Frankton Road 151L号", dist:"1.541"},
+    {name:"Oaks Queenstown Club Suites", type:"酒店", address:"171-179 Frankton Road", dist:"1.593"},
+    {name:"Villa de Lago", type:"公寓式住宿", address:"Frankton Track", dist:"1.881"},
+    {name:"Heritage Hotel", type:"酒店", address:"91 Fernhill Road", dist:"1.886"},
+    {name:"（OSM未标注名称）", type:"家庭旅馆/B&B", address:"Frankton Road 267号一带", dist:"2.006"},
+    {name:"Mercure Queenstown Resort", type:"酒店", address:"Sainsbury Road", dist:"2.337"},
+    {name:"Oaks Queenstown Shores Resort", type:"酒店", address:"327-343 Frankton Road", dist:"2.434"},
+    {name:"The Rees Hotel", type:"酒店", address:"377 Frankton Road", dist:"2.614"},
+    {name:"Kamana Lakehouse", type:"酒店", address:"139 Fernhill Road", dist:"2.741"}
+  ],
+  christchurch: [
+    {name:"Drifter Christchurch", type:"酒店", address:"96 Lichfield Street", dist:"0.102"},
+    {name:"The Muse Hotel", type:"酒店", address:"159 Manchester Street", dist:"0.223"},
+    {name:"BreakFree on Cashel", type:"酒店", address:"165 Cashel Street", dist:"0.271"},
+    {name:"Christchurch City Hotel", type:"酒店", address:"Colombo Street", dist:"0.296"},
+    {name:"Ibis Hotel Christchurch", type:"酒店", address:"Cathedral Square", dist:"0.433"},
+    {name:"Distinction Hotel Christchurch", type:"酒店", address:"Cathedral Square", dist:"0.456"},
+    {name:"Quest on Manchester", type:"酒店", address:"54 Manchester Street", dist:"0.541"},
+    {name:"Quest Apartments", type:"酒店", address:"Worcester Street", dist:"0.559"},
+    {name:"Heritage Christchurch Hotel", type:"酒店", address:"28 Cathedral Square", dist:"0.561"},
+    {name:"Hotel 115", type:"酒店", address:"115 Worcester Street", dist:"0.581"},
+    {name:"Novotel", type:"酒店", address:"52 Cathedral Square", dist:"0.584"},
+    {name:"Southwark Apartments", type:"酒店", address:"25 Southwark Street", dist:"0.641"},
+    {name:"Fable Christchurch", type:"酒店", address:"166 Gloucester Street", dist:"0.689"},
+    {name:"Urbanz Accommodation Christchurch", type:"背包客栈", address:"273 Manchester Street", dist:"0.717"},
+    {name:"Christchurch Central City Apartment", type:"公寓式住宿", address:"7/200 Gloucester Street", dist:"0.772"},
+    {name:"Crowne Plaza Christchurch", type:"酒店", address:"Armagh Street", dist:"0.786"},
+    {name:"Eco Villa", type:"背包客栈", address:"251 Hereford Street", dist:"0.82"},
+    {name:"Rydges Latimer", type:"酒店", address:"Latimer Square", dist:"0.901"},
+    {name:"Haka House Christchurch", type:"背包客栈", address:"36 Hereford Street", dist:"0.921"},
+    {name:"City Central Motel Apartments", type:"汽车旅馆", address:"252 Barbadoes Street", dist:"0.931"},
+    {name:"The Observatory Hotel", type:"酒店", address:"Worcester Boulevard", dist:"0.982"},
+    {name:"Luxury Without Limits in CBD", type:"背包客栈", address:"1/278 Barbadoes Street", dist:"1"},
+    {name:"Orari Bed & Breakfast", type:"家庭旅馆/B&B", address:"Gloucester Street", dist:"1.045"},
+    {name:"Hotel Give", type:"背包客栈", address:"Rolleston Avenue", dist:"1.059"},
+    {name:"Urban Rooms", type:"公寓式住宿", address:"Gloucester Street", dist:"1.124"},
+    {name:"Quest on Kilmore", type:"酒店", address:"93 Kilmore Street", dist:"1.181"},
+    {name:"Fino", type:"酒店", address:"87 Kilmore Street", dist:"1.21"},
+    {name:"YHA Rolleston House", type:"背包客栈", address:"5 Worcester Boulevard", dist:"1.22"},
+    {name:"Carnmore Hotel Christchurch", type:"酒店", address:"840-848 Colombo Street", dist:"1.267"},
+    {name:"The Classic Villa", type:"酒店", address:"17 Worcester Boulevard", dist:"1.281"},
+    {name:"Around The World Backpackers", type:"背包客栈", address:"314 Barbadoes Street", dist:"1.29"},
+    {name:"C Motel", type:"汽车旅馆", address:"323 Cashel Street", dist:"1.294"},
+    {name:"Centre Point on Colombo Motel", type:"汽车旅馆", address:"859 Colombo Street", dist:"1.381"},
+    {name:"Foley Towers", type:"背包客栈", address:"208 Kilmore Street", dist:"1.399"},
+    {name:"Colombo In The City Motel", type:"汽车旅馆", address:"863 Colombo Street", dist:"1.401"},
+    {name:"Chester Street Backpackers", type:"背包客栈", address:"148 Chester Street East", dist:"1.434"},
+    {name:"The Salisbury Hotel", type:"酒店", address:"345 Madras Street", dist:"1.471"},
+    {name:"City Centre Motel", type:"汽车旅馆", address:"876 Colombo Street", dist:"1.514"},
+    {name:"Hotel Montreal", type:"酒店", address:"363 Montreal Street", dist:"1.538"},
+    {name:"Bealey Avenue 195号酒店", type:"酒店", address:"195 Bealey Avenue", dist:"1.67"},
+    {name:"Sudima Christchurch City", type:"酒店", address:"47-49 Salisbury Street", dist:"1.698"},
+    {name:"136 On Bealey - Avenue Motel", type:"汽车旅馆", address:"136 Bealey Avenue", dist:"1.699"},
+    {name:"Abbey Lodge Motel", type:"汽车旅馆", address:"209 Bealey Avenue", dist:"1.711"},
+    {name:"The George", type:"酒店", address:"Park Terrace", dist:"1.716"},
+    {name:"Kiwi House", type:"背包客栈", address:"373 Gloucester Street", dist:"1.719"},
+    {name:"Montreal Street 388号度假屋", type:"酒店", address:"388 Montreal Street", dist:"1.737"},
+    {name:"Belmont Motor Inn", type:"汽车旅馆", address:"172 Bealey Avenue", dist:"1.769"},
+    {name:"Admiral Motel", type:"汽车旅馆", address:"168 Bealey Avenue", dist:"1.784"},
+    {name:"Conference Street 24号度假屋", type:"酒店", address:"24 Conference Street", dist:"1.792"},
+    {name:"Sherborne Street 1/9号汽车旅馆", type:"汽车旅馆", address:"1/9 Sherborne Street", dist:"1.796"},
+    {name:"Pomeroy's on Kilmore", type:"家庭旅馆/B&B", address:"284 Kilmore Street", dist:"1.81"},
+    {name:"Small Kiwi House", type:"背包客栈", address:"357 Hereford Street", dist:"1.834"},
+    {name:"Salerno Motel", type:"汽车旅馆", address:"Bealey Avenue", dist:"1.842"},
+    {name:"Bealey Avenue Motel", type:"酒店", address:"Bealey Avenue", dist:"1.855"},
+    {name:"Inner City Pad", type:"背包客栈", address:"Nursery Road", dist:"1.855"},
+    {name:"Bella Vista Motel", type:"汽车旅馆", address:"Bealey Avenue", dist:"1.857"},
+    {name:"The Mayfair", type:"酒店", address:"155 Victoria Street", dist:"1.924"},
+    {name:"St Asaph Street 525号家庭旅馆", type:"家庭旅馆/B&B", address:"525 St Asaph Street", dist:"1.932"},
+    {name:"Alexandra Court Motel", type:"汽车旅馆", address:"Papanui Parallel Cycleway", dist:"1.945"},
+    {name:"The Studios (Bealey Quarter)", type:"汽车旅馆", address:"263 Bealey Avenue", dist:"1.976"},
+    {name:"The Old Countryhouse", type:"背包客栈", address:"431 Gloucester Street", dist:"1.998"},
+    {name:"Eliza's Manor House", type:"酒店", address:"82 Bealey Avenue", dist:"2.005"},
+    {name:"Sandridge Hotel", type:"酒店", address:"Huxley Street", dist:"2.011"},
+    {name:"Country Glenn Motor Lodge", type:"汽车旅馆", address:"53 Bealey Avenue", dist:"2.014"},
+    {name:"Cashel Court Motel", type:"汽车旅馆", address:"Nursery Road", dist:"2.024"},
+    {name:"Canterbury House", type:"背包客栈", address:"257 Bealey Street", dist:"2.055"},
+    {name:"Bellagio Motel", type:"汽车旅馆", address:"Bealey Avenue", dist:"2.064"},
+    {name:"Tranquil Lodge", type:"背包客栈", address:"440 Manchester Street", dist:"2.065"},
+    {name:"Tuscana Motor Lodge", type:"汽车旅馆", address:"Bealey Avenue", dist:"2.066"},
+    {name:"Rucksacker Hostel BBH", type:"背包客栈", address:"Bealey Avenue", dist:"2.072"},
+    {name:"The Parque", type:"酒店", address:"13 Dublin Street", dist:"2.098"},
+    {name:"All Stars Inn on Bealey", type:"背包客栈", address:"263 Bealey Avenue", dist:"2.112"},
+    {name:"Kiwi Basecamp", type:"背包客栈", address:"69 Bealey Avenue", dist:"2.126"},
+    {name:"At The Right Place Hostel", type:"汽车旅馆", address:"Bealey Avenue", dist:"2.131"},
+    {name:"Amross Court Motel", type:"汽车旅馆", address:"61 Bealey Avenue", dist:"2.135"},
+    {name:"Southern Comfort Motel", type:"汽车旅馆", address:"Bealey Avenue", dist:"2.177"},
+    {name:"Tudor Court Motel", type:"汽车旅馆", address:"Bealey Avenue", dist:"2.203"},
+    {name:"Sherborne Motor Lodge", type:"汽车旅馆", address:"94 Sherborne Street", dist:"2.285"},
+    {name:"Camelot Motor Lodge", type:"汽车旅馆", address:"28 Papanui Road", dist:"2.286"},
+    {name:"Alcala Motor Lodge", type:"汽车旅馆", address:"98 Sherborne Street", dist:"2.291"},
+    {name:"Pavilion's Hotel", type:"酒店", address:"Papanui Road", dist:"2.312"},
+    {name:"De Lago Motel", type:"汽车旅馆", address:"Papanui Road", dist:"2.325"},
+    {name:"Ashford Motor Lodge", type:"汽车旅馆", address:"Papanui Road", dist:"2.355"},
+    {name:"Colonial Inn", type:"汽车旅馆", address:"Papanui Road", dist:"2.377"},
+    {name:"Arthurs Court Motor Lodge", type:"汽车旅馆", address:"110 Sherborne Street", dist:"2.384"},
+    {name:"Straithern Motor Lodge", type:"汽车旅馆", address:"Clare Road", dist:"2.396"},
+    {name:"Adelphi Motel", type:"汽车旅馆", address:"Papanui Road", dist:"2.41"},
+    {name:"Ferry Motel", type:"汽车旅馆", address:"Ferry Road", dist:"2.501"},
+    {name:"Scenic Hotel Cotswold", type:"酒店", address:"Papanui Road / Holly Road", dist:"2.59"},
+    {name:"Azena Motel", type:"汽车旅馆", address:"Cranford Street", dist:"2.616"},
+    {name:"Parkview Hotel", type:"酒店", address:"Riccarton Road", dist:"2.647"},
+    {name:"Jailhouse Accommodation", type:"背包客栈", address:"Dickens Street", dist:"2.743"},
+    {name:"Nick's Place", type:"公寓式住宿", address:"78 Holly Road", dist:"2.782"},
+    {name:"Central Park Motel", type:"汽车旅馆", address:"Bartlett Street", dist:"2.783"},
+    {name:"Aalton Motel", type:"汽车旅馆", address:"19 Riccarton Road", dist:"2.799"},
+    {name:"Merivale Manor", type:"汽车旅馆", address:"Papanui Road", dist:"2.816"},
+    {name:"Samhil Motor Lodge", type:"汽车旅馆", address:"Darvel Street", dist:"2.816"},
+    {name:"Diplomat Motel", type:"汽车旅馆", address:"Papanui Road", dist:"2.829"},
+    {name:"City Park Motel", type:"汽车旅馆", address:"Riccarton Road", dist:"2.831"},
+    {name:"Argyle Motel", type:"汽车旅馆", address:"Bartlett Street", dist:"2.866"},
+    {name:"The Towers on the Park", type:"酒店", address:"7 Kilmarnock Street", dist:"2.957"}
+  ]
+};
+
+function loadHotels() {
+  const city = document.getElementById('city').value;
+  const hotelSelect = document.getElementById('hotel');
+  const result = document.getElementById('result');
+  hotelSelect.innerHTML = '<option value="">— 请选择住宿 —</option>';
+  result.className = 'result empty';
+  result.textContent = '请选择住宿名称';
+  if (!city) {
+    hotelSelect.disabled = true;
+    hotelSelect.innerHTML = '<option value="">— 请先选择出发地 —</option>';
+    return;
+  }
+  hotelSelect.disabled = false;
+  data[city].forEach((h, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = h.name;
+    hotelSelect.appendChild(opt);
+  });
+}
+
+function showDetail() {
+  const city = document.getElementById('city').value;
+  const idx = document.getElementById('hotel').value;
+  const result = document.getElementById('result');
+  if (idx === '' || !city) {
+    result.className = 'result empty';
+    result.textContent = '请选择住宿名称';
+    return;
+  }
+  const h = data[city][idx];
+  result.className = 'result';
+  result.innerHTML = `
+    <div class="hotel-name">${h.name}</div>
+    <div class="hotel-detail">
+      <span>${h.type}</span>
+      <span>驾车 ${h.dist} km</span>
+    </div>
+    <div class="address-line"><strong>地址：</strong>${h.address}</div>
+  `;
+}
+</script>
+</body>
+</html>
